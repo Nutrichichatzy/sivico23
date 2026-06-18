@@ -1101,6 +1101,27 @@ app.get('/api/registros', authenticateToken, authorizeRoles('admin', 'medico', '
       SELECT r.id, r.codigo, r.fecha, 
              p.cedula, p.nombre, p.apellido, p.fecha_nacimiento,
              p.sexo, s.nombre AS sector,
+             COALESCE((
+               SELECT json_agg(json_build_object(
+                 'nombre', pc2.nombre,
+                 'cie10', pc2.codigo
+               ))
+               FROM tratamientos t2
+               JOIN patologias_cie10 pc2 ON t2.patologia_id = pc2.id
+               WHERE t2.registro_id = r.id
+             ), '[]'::json) as patologias,
+             COALESCE((
+               SELECT json_agg(json_build_object(
+                 'nombre', m.nombre,
+                 'presentacion', m.presentacion,
+                 'dosis', m.dosis,
+                 'via', m.via,
+                 'disponibilidad', m.disponibilidad
+               ))
+               FROM tratamientos t2
+               JOIN medicamentos m ON m.tratamiento_id = t2.id
+               WHERE t2.registro_id = r.id
+             ), '[]'::json) as medicamentos,
              (SELECT pc2.nombre FROM tratamientos t2 
               JOIN patologias_cie10 pc2 ON t2.patologia_id = pc2.id 
               WHERE t2.registro_id = r.id LIMIT 1) as patologia_nombre,
@@ -1156,6 +1177,8 @@ app.get('/api/registros', authenticateToken, authorizeRoles('admin', 'medico', '
       categoria: {
         nombre: row.patologia_categoria
       },
+      patologias: row.patologias || [],
+      medicamentos: row.medicamentos || [],
       vocero_nombre: row.vocero_nombre
     }));
 
